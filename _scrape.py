@@ -1,5 +1,6 @@
 import sys
 import networkx as nx
+import matplotlib.font_manager as fm
 import re
 import requests
 from bs4 import BeautifulSoup
@@ -65,8 +66,25 @@ for device in soup.select('#device-table > tbody > tr'):
     rssi   = details.select(
         '#deviceMetrics-label + td > ul > li:nth-of-type(2) > strong'
         )
+    lqi   = details.select(
+        '#deviceMetrics-label + td > ul > li:nth-of-type(1) > strong'
+    )
     if rssi:
-        translationDict[deviceNetworkId] = deviceName + ' RSSI: ' + rssi[0].text
+        translationDict[deviceNetworkId] = deviceName + '\n RSSI: ' + rssi[0].text + '\n LQI:' + lqi[0].text
+        lqiValue = int(lqi[0].text)
+        weightValue = 0
+        colorValue = '#13d175'
+        if lqiValue >= 200:
+            weightValue = 2.5
+        elif lqiValue >= 150 and lqiValue < 200:
+            weightValue = 2
+            colorValue = '#8dd6b3'
+        elif lqiValue >= 100 and lqiValue < 150:
+            weightValue = 1.5
+            colorValue = '#abd6c2'
+        else:
+            weightValue = 1
+            colorValue = '#ced9d4'
     deviceRoute = []
     if not routes:
         G.remove_node(deviceNetworkId)
@@ -91,18 +109,28 @@ for device in soup.select('#device-table > tbody > tr'):
     previousroute = None
     for route in deviceRoute:
         if not previousroute:
-            G.add_edge(deviceNetworkId, route)
+            G.add_edge(deviceNetworkId, route, color=colorValue,weight=weightValue)
         else:
-            G.add_edge(route, previousroute)
+            G.add_edge(route, previousroute, color=colorValue,weight=weightValue)
         previousroute = route
 
+font_name = fm.FontProperties(fname="c:/Windows/Fonts/malgun.ttf").get_name()
+#font_name = 'AppleGothic'
+d = dict(G.degree)
+node_size=[v * 100 for v in d.values()]
+
+edges = G.edges()
+weights = [G[u][v]['weight'] for u,v in edges]
+colors = [G[u][v]['color'] for u,v in edges]
+
 options = {
+    'font_family' : font_name,
     'font_size': 10,
-    'node_size': 100,
-    'width': 2,
+    'node_size': node_size,
+    'width': weights,
     'with_labels': True,
     'labels': translationDict,
     'node_color': '#DE781F',
-    'edge_color': '#1F85DE'
+    'edge_color': colors
 }
 nx.draw(G,**options)
